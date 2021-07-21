@@ -7,9 +7,6 @@ from src.tp_envs.ant_goal import AntGoalEnv as AntGoalEnv_
 from src.tp_envs.humanoid_dir import HumanoidDirEnv as HumanoidDirEnv_
 from src.tp_envs.walker_rand_params_wrapper import WalkerRandParamsWrappedEnv as WalkerRandParamsWrappedEnv_
 from gym.spaces import Box
-from metaworld.benchmarks.base import Benchmark
-from metaworld.envs.mujoco.multitask_env import MultiClassMultiTaskEnv
-from metaworld.envs.mujoco.env_dict import HARD_MODE_ARGS_KWARGS, HARD_MODE_CLS_DICT
 from gym.wrappers import TimeLimit
 from copy import deepcopy
 

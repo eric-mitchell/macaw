@@ -1,10 +1,10 @@
 #!/bin/bash
 
-source env/bin/activate "$(conda shell.bash hook)"
+source env/bin/activate
 which python
 
 NAME="macaw_vel_randinner_nowt"
-LOG_DIR="log/icml_rebuttal/multiseed"
+LOG_DIR="log"
 TASK_CONFIG="config/cheetah_vel/40tasks_offline.json"
 MACAW_PARAMS="config/alg/standard_rand_inner.json"
 OVERRIDES="config/alg/overrides/no_wlinear.json"

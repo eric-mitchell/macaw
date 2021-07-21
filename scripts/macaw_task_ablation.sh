@@ -1,12 +1,6 @@
 #!/bin/bash
 
-if [[ $(hostname) != "iris-ws-3.stanford.edu" ]]; then
-    eval "$(conda shell.bash hook)"
-    conda activate macaw
-    which python
-fi
-
-LOG_DIR="log/iclr_rebuttal/task"
+LOG_DIR="log"
 MACAW_PARAMS="config/alg/standard.json"
 OVERRIDE="config/alg/overrides/1instance.json"
 

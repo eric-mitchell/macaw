@@ -1,11 +1,11 @@
 {
     "env": "cheetah_vel",
-    "task_paths": "/iris/u/rafailov/NIPS2020_data/cheetah_vel_final/env_cheetah_vel_train_task{}.pkl",
+    "task_paths": "macaw_offline_data/cheetah_vel/env_cheetah_vel_train_task{}.pkl",
     "total_tasks": 40,
     "train_tasks": [0,4,8,12,16,
 		    20,24,28,32,36],
     "test_tasks": [1,2,3,5,6,7,9,10,11,13,14,15,17,18,19,
 		   21,22,23,25,26,27,29,30,31,33,34,35,37,38,39],
-    "train_buffer_paths": "/iris/u/rafailov/NIPS2020_data/cheetah_vel_final/buffers_cheetah_vel_train_{}_sub_task_0.hdf5",
-    "test_buffer_paths": "/iris/u/rafailov/NIPS2020_data/cheetah_vel_final/buffers_cheetah_vel_train_{}_sub_task_0.hdf5"
+    "train_buffer_paths": "macaw_offline_data/cheetah_vel/buffers_cheetah_vel_train_{}_sub_task_0.hdf5",
+    "test_buffer_paths": "macaw_offline_data/cheetah_vel/buffers_cheetah_vel_train_{}_sub_task_0.hdf5"
 }

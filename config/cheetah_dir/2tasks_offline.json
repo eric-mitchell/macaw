@@ -1,9 +1,9 @@
 {
     "env": "cheetah_dir",
-    "task_paths": "/iris/u/rafailov/NIPS2020_data/cheetah_dir/env_cheetah_dir_train_task{}.pkl",
+    "task_paths": "macaw_offline_data/cheetah_dir/env_cheetah_dir_train_task{}.pkl",
     "total_tasks": 2,
     "train_tasks": [0,1],
     "test_tasks": [0,1],
-    "train_buffer_paths": "/iris/u/rafailov/NIPS2020_data/cheetah_dir/buffers_cheetah_dir_train_{}_sub_task_0.hdf5",
-    "test_buffer_paths": "/iris/u/rafailov/NIPS2020_data/cheetah_dir/buffers_cheetah_dir_train_{}_sub_task_0.hdf5"
+    "train_buffer_paths": "macaw_offline_data/cheetah_dir/buffers_cheetah_dir_train_{}_sub_task_0.hdf5",
+    "test_buffer_paths": "macaw_offline_data/cheetah_dir/buffers_cheetah_dir_train_{}_sub_task_0.hdf5"
 }

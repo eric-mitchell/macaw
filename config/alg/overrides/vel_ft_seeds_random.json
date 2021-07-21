@@ -1,0 +1,5 @@
+{
+    "online_ft": true,
+    "archive": "log/icml_rebuttal/multiseed/macaw_vel_randinner/archive_50000.pt",
+    "sampling_policy_path": "log/icml_rebuttal/multiseed/macaw_vel_randinner/archive_0.pt"
+}

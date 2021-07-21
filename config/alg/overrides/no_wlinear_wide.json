@@ -1,0 +1,7 @@
+{
+    "wlinear": false,
+    "net_width": 725,
+    "instances": 1,
+    "replay_buffer_size": 100000,
+    "buffer_skip": 1
+}

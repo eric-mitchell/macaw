@@ -1,0 +1,17 @@
+{
+    "offline": true,
+    "load_inner_buffer": true,
+    "load_outer_buffer": true,
+    "replay_buffer_size": -1,
+    "outer_value_lr": 0.0001,
+    "outer_policy_lr": 0.0001,
+    "inner_policy_lr": 0.001,
+    "inner_value_lr": 0.0001,
+    "batch_size": 256,
+    "inner_batch_size": 256,
+    "eval_batch_size": 256,
+    "buffer_skip": 7,
+    "multitask": true,
+    "task_batch_size": 5,
+    "vis_interval": 1000
+}

@@ -1,0 +1,16 @@
+{
+    "advantage_head_coef": 0,
+    "offline": true,
+    "load_inner_buffer": false,
+    "load_outer_buffer": true,
+    "replay_buffer_size": 2500000,
+    "outer_value_lr": 0.0001,
+    "outer_policy_lr": 0.0001,
+    "inner_policy_lr": 0.015,
+    "inner_value_lr": 0.1,
+    "batch_size": 256,
+    "inner_batch_size": 256,
+    "maml_steps": 1,
+    "eval_maml_steps": 1,
+    "lrlr": 0
+}

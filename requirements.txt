@@ -1,0 +1,13 @@
+torch
+numpy
+higher
+git+https://github.com/rlworkgroup/metaworld.git@44b2e41#egg=metaworld
+gym==0.12.1
+imageio
+mujoco_py
+tensorboard
+tensorflow-gpu==1.14.0
+stable_baselines
+git+https://github.com/dennisl88/rand_param_envs.git@4d1529d61ca0d65ed4bd9207b108d4a4662a4da0#egg=rand_param_envs
+mpi4py
+cvxpy

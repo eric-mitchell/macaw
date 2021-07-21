@@ -1,0 +1,9 @@
+{
+    "instances": 1,
+    "replay_buffer_size": -1,
+    "inner_buffer_size": -1,
+    "buffer_skip": 1,
+    "inner_buffer_skip": 1,
+    "vis_interval": 2000,
+    "seed": 1
+}

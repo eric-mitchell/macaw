@@ -1,0 +1,5 @@
+{
+    "instances": 1,
+    "online_ft": true,
+    "archive": "log/iclr_rebuttal/macaw_vel_alldata_extrapolation/archive_130000.pt"
+}

@@ -1,10 +1,11 @@
 import numpy as np
 
 from src.tp_envs.half_cheetah import HalfCheetahEnv
+
 from . import register_env
 
 
-@register_env('cheetah-dir')
+@register_env("cheetah-dir")
 class HalfCheetahDirEnv(HalfCheetahEnv):
     """Half-cheetah environment with target direction, as described in [1]. The
     code is adapted from
@@ -23,11 +24,12 @@ class HalfCheetahDirEnv(HalfCheetahEnv):
         model-based control", 2012
         (https://homes.cs.washington.edu/~todorov/papers/TodorovIROS12.pdf)
     """
+
     def __init__(self, task={}, n_tasks=2, randomize_tasks=False):
         directions = [-1, 1]
-        self.tasks = [{'direction': direction} for direction in directions]
+        self.tasks = [{"direction": direction} for direction in directions]
         self._task = task
-        self._goal_dir = task.get('direction', 1)
+        self._goal_dir = task.get("direction", 1)
         self._goal = self._goal_dir
         super(HalfCheetahDirEnv, self).__init__()
 
@@ -43,13 +45,14 @@ class HalfCheetahDirEnv(HalfCheetahEnv):
         observation = self._get_obs()
         reward = forward_reward - ctrl_cost
         done = False
-        infos = dict(reward_forward=forward_reward,
-            reward_ctrl=-ctrl_cost, task=self._task)
+        infos = dict(
+            reward_forward=forward_reward, reward_ctrl=-ctrl_cost, task=self._task
+        )
         return (observation, reward, done, infos)
 
     def sample_tasks(self, num_tasks):
         directions = 2 * self.np_random.binomial(1, p=0.5, size=(num_tasks,)) - 1
-        tasks = [{'direction': direction} for direction in directions]
+        tasks = [{"direction": direction} for direction in directions]
         return tasks
 
     def get_all_task_idx(self):
@@ -57,6 +60,6 @@ class HalfCheetahDirEnv(HalfCheetahEnv):
 
     def reset_task(self, idx):
         self._task = self.tasks[idx]
-        self._goal_dir = self._task['direction']
+        self._goal_dir = self._task["direction"]
         self._goal = self._goal_dir
         self.reset()

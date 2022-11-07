@@ -1,13 +1,16 @@
+from typing import Dict, List
+
 import numpy as np
-from typing import List, Dict
 from rand_param_envs.walker2d_rand_params import Walker2DRandParamsEnv
 
 from . import register_env
 
 
-@register_env('walker-rand-params')
+@register_env("walker-rand-params")
 class WalkerRandParamsWrappedEnv(Walker2DRandParamsEnv):
-    def __init__(self, tasks: List[Dict] = None, n_tasks: int = None, randomize_tasks=True):
+    def __init__(
+        self, tasks: List[Dict] = None, n_tasks: int = None, randomize_tasks=True
+    ):
         super(WalkerRandParamsWrappedEnv, self).__init__()
         if tasks is None and n_tasks is None:
             raise Exception("Either tasks or n_tasks must be specified")

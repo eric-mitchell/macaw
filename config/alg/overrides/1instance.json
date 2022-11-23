@@ -1,4 +1,5 @@
 {
     "instances": 1,
-    "vis_interval": 2000
+    "vis_interval": 2000,
+    "log_dir": "log_debug"
 }

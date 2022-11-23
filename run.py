@@ -3,48 +3,15 @@ import json
 import pickle
 import random
 from collections import namedtuple
-from typing import List, Optional
 
-import gym
 import numpy as np
 import torch
 from torch.multiprocessing import Process, set_start_method
 
 from src.args import get_args
-from src.envs import (AntDirEnv, AntGoalEnv, HalfCheetahDirEnv,
-                      HalfCheetahVelEnv, HumanoidDirEnv, ML45Env,
+from src.envs import (AntDirEnv, HalfCheetahDirEnv, HalfCheetahVelEnv,
                       WalkerRandParamsWrappedEnv)
 from src.macaw import MACAW
-
-
-def get_gym_env(env: str):
-    if env == "ant":
-        env = gym.make("Ant-v2")
-    elif env == "walker":
-        env = gym.make("Walker2d-v2")
-    elif env == "humanoid":
-        env = gym.make("Humanoid-v2")
-    else:
-        raise NotImplementedError(f"Unknown env: {env}")
-
-    env.tasks = [{}]
-
-    env.task_description_dim = lambda: 1
-
-    def set_task_idx(idx):
-        pass
-
-    env.set_task_idx = set_task_idx
-
-    def task_description(batch: None, one_hot: bool = True):
-        one_hot = np.zeros((1,))
-        if batch:
-            one_hot = one_hot[None, :].repeat(batch, 0)
-        return one_hot
-
-    env.task_description = task_description
-
-    return env
 
 
 def run(args: argparse.Namespace, instance_idx: int = 0):

@@ -420,7 +420,7 @@ class MACAW(object):
             policy.unfix()
         return trajectory, total_reward, success
 
-    def add_task_description(self, obs, task_idx: int):
+    def add_task_description(self, obs, task_idx: Optional[int]):
         if not self._args.multitask:
             return obs
 
@@ -460,7 +460,7 @@ class MACAW(object):
         value_function,
         batch,
         inner: bool = False,
-        task_idx: int = None,
+        task_idx: Optional[int] = None,
     ):
         q_estimates = q_function(
             self.add_task_description(
@@ -494,8 +494,7 @@ class MACAW(object):
         value_function,
         batch,
         inner: bool = False,
-        task_idx: int = None,
-        iweights: torch.tensor = None,
+        task_idx: Optional[int] = None,
         target=None,
     ):
         value_estimates = value_function(
@@ -558,10 +557,8 @@ class MACAW(object):
         q_function,
         value_function,
         batch,
-        task_idx: int,
+        task_idx: Optional[int],
         inner: bool = False,
-        iweights: torch.tensor = None,
-        online: bool = False,
     ):
         with torch.no_grad():
             value_estimates = value_function(
@@ -602,9 +599,6 @@ class MACAW(object):
                 f"POLICY {advantages.abs().mean()}, {weights.abs().mean()}",
             )
 
-        original_action = batch[
-            :, self._observation_dim : self._observation_dim + self._action_dim
-        ]
         if self._args.advantage_head_coef is not None:
             action_mu, advantage_prediction = policy(
                 self.add_task_description(batch[:, : self._observation_dim], task_idx),
@@ -624,9 +618,6 @@ class MACAW(object):
 
         losses = -(action_log_probs * weights)
 
-        if iweights is not None:
-            losses = losses * iweights
-
         adv_prediction_loss = None
         if inner:
             if self._args.advantage_head_coef is not None:
@@ -639,12 +630,11 @@ class MACAW(object):
 
         return losses.mean(), advantages.mean(), weights, adv_prediction_loss
 
+    @staticmethod
     def update_model(
-        self,
         model: nn.Module,
         optimizer: torch.optim.Optimizer,
         clip: float = None,
-        extra_grad: list = None,
     ):
         if clip is not None:
             grad = torch.nn.utils.clip_grad_norm_(model.parameters(), clip)

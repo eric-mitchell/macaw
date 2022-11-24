@@ -1,5 +1,5 @@
 import argparse
-import itertools
+import logging
 import json
 import math
 import os
@@ -14,35 +14,24 @@ from typing import List, Optional
 import higher
 import numpy as np
 import torch
-import torch.autograd as A
 import torch.distributions as D
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as O
 
-warnings.filterwarnings("ignore", category=FutureWarning)
 from torch.utils.tensorboard import SummaryWriter
 
 from src.nn import CVAE, MLP
-from src.utils import Experience, ReplayBuffer, RunningEstimator, argmax, kld
+from src.utils import Experience, ReplayBuffer, RunningEstimator, setup_logger
+
+
+logger = logging.getLogger(__name__)
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 
 def env_action_dim(env):
     action_space = env.action_space.shape
     return action_space[0] if len(action_space) > 0 else 1
-
-
-def print_(s: str, c: bool, end=None):
-    if not c:
-        if end is not None:
-            print(s, end=end)
-        else:
-            print(s)
-
-
-def DEBUG(s: str, c: bool):
-    if c:
-        print(s)
 
 
 def check_config(config):
@@ -61,7 +50,7 @@ class MACAW(object):
     def __init__(
         self,
         args: argparse.Namespace,
-        task_config: dict,
+        task_config,
         env,
         log_dir: str,
         name: str = None,
@@ -69,10 +58,8 @@ class MACAW(object):
         visualization_interval: int = 100,
         silent: bool = False,
         instance_idx: int = 0,
-        replay_buffer_length: int = 1000,
         gradient_steps_per_iteration: int = 1,
         discount_factor: float = 0.99,
-        seed: int = 0,
     ):
         self._env = env
         self._log_dir = log_dir
@@ -132,14 +119,14 @@ class MACAW(object):
         ).to(args.device)
 
         try:
-            print(self._adaptation_policy.seq[0]._linear.weight.mean())
+            logger.info(self._adaptation_policy.seq[0]._linear.weight.mean())
         except Exception as e:
-            print(self._adaptation_policy.seq[0].weight.mean())
+            logger.info(self._adaptation_policy.seq[0].weight.mean())
 
-        print(
+        logger.info(
             f"Adaptation policy #params {torch.cat([p.view(-1) for p in self._adaptation_policy.parameters()]).shape[0]:,}"
         )
-        print(
+        logger.info(
             f"Value function #params {torch.cat([p.view(-1) for p in self._value_function.parameters()]).shape[0]:,}"
         )
 
@@ -172,12 +159,12 @@ class MACAW(object):
             if self._instance_idx > 0:
                 comps = args.archive.split("/")
                 comps[-2] += f"_{instance_idx}"
-                print("Remapping archive for new seed:")
-                print(f"From:\t{args.archive}")
+                logger.info("Remapping archive for new seed:")
+                logger.info(f"From:\t{args.archive}")
                 archive_path = "/".join(comps)
-                print(f"To:\t{archive_path}")
+                logger.info(f"To:\t{archive_path}")
 
-            print(f"Loading parameters from archive: {archive_path}")
+            logger.info(f"Loading parameters from archive: {archive_path}")
             archive = torch.load(archive_path)
             self._value_function.load_state_dict(archive["vf"])
             self._adaptation_policy.load_state_dict(archive["policy"])
@@ -531,9 +518,8 @@ class MACAW(object):
                 targets[targets < -1] = -targets[targets < -1].abs().log()
                 targets = targets.clone()
 
-        DEBUG(
+        logger.debug(
             f"({task_idx}) VALUE: {value_estimates.abs().mean()}, {targets.abs().mean()}",
-            self._args.debug,
         )
         if self._args.huber and not inner:
             losses = F.smooth_l1_loss(value_estimates, targets, reduction="none")
@@ -612,9 +598,8 @@ class MACAW(object):
                     / advantages.std()
                 )
                 weights = normalized_advantages.clamp(max=self._advantage_clamp).exp()
-            DEBUG(
+            logger.debug(
                 f"POLICY {advantages.abs().mean()}, {weights.abs().mean()}",
-                self._args.debug,
             )
 
         original_action = batch[
@@ -797,7 +782,7 @@ class MACAW(object):
             ft_steps = 0
             burn_in = 0
         else:
-            print(
+            logger.info(
                 f"Beginning fine-tuning for {ft_steps} steps, including {burn_in} of burn in."
             )
         trajectories, successes = [], []
@@ -812,10 +797,10 @@ class MACAW(object):
         ):
             self._env.set_task_idx(test_task_idx)
             if ft == "online":
-                print(f"Beginning fine-tuning on task {test_task_idx}")
+                logger.info(f"Beginning fine-tuning on task {test_task_idx}")
                 filepath = log_path + "/rewards"
                 if log_path is not None:
-                    print(f"Saving results to {filepath}")
+                    logger.info(f"Saving results to {filepath}")
 
             adapted_trajectory, adapted_reward, success = self._rollout_policy(
                 self._adaptation_policy,
@@ -837,9 +822,8 @@ class MACAW(object):
 
             value_function = deepcopy(self._value_function)
             vf_target = deepcopy(value_function)
-            DEBUG(
+            logger.debug(
                 "******************************************* EVAL **********************************",
-                self._args.debug,
             )
             opt = O.SGD(
                 [
@@ -930,7 +914,7 @@ class MACAW(object):
                             step_time = (time.time() - start) / max(
                                 1, (eval_step - burn_in)
                             )
-                            print(
+                            logger.info(
                                 self._instance_idx,
                                 eval_step,
                                 eval_rewards,
@@ -1136,9 +1120,8 @@ class MACAW(object):
         for i, (train_task_idx, inner_buffer, outer_buffer) in enumerate(
             zip(self.task_config.train_tasks, self._inner_buffers, self._outer_buffers)
         ):
-            DEBUG(
+            logger.debug(
                 f"**************** TASK IDX {train_task_idx} ***********",
-                self._args.debug,
             )
 
             # Only train on the randomly selected tasks for this iteration
@@ -1172,9 +1155,6 @@ class MACAW(object):
             inner_values, outer_values = [], []
             inner_weights, outer_weights = [], []
             inner_advantages, outer_advantages = [], []
-
-            iweights_ = None
-            iweights_no_action_ = None
 
             ##################################################################################################
             # Adapt value function and collect meta-gradients
@@ -1256,9 +1236,8 @@ class MACAW(object):
                         ) as (f_value_function, diff_value_opt):
                             if len(self._env.tasks) > 1:
                                 for step in range(self._maml_steps):
-                                    DEBUG(
+                                    logger.debug(
                                         f"################# VALUE STEP {step} ###################",
-                                        self._args.debug,
                                     )
                                     sub_batch = value_batch.view(
                                         self._args.maml_steps,
@@ -1342,9 +1321,8 @@ class MACAW(object):
                     ) as (f_adaptation_policy, diff_policy_opt):
                         if len(self._env.tasks) > 1:
                             for step in range(self._maml_steps):
-                                DEBUG(
+                                logger.debug(
                                     f"################# POLICY STEP {step} ###################",
-                                    self._args.debug,
                                 )
                                 sub_batch = policy_batch.view(
                                     self._args.maml_steps,
@@ -1618,11 +1596,11 @@ class MACAW(object):
             for directory in existing:
                 if directory.startswith(self._name):
                     idx += 1
-            print(f"Experiment output {log_path} already exists.")
+            logger.info(f"Experiment output {log_path} already exists.")
             log_path = f"{self._log_dir}/{self._name}{sep}{idx}"
             self._name = f"{self._name}{sep}{idx}"
 
-        print(f"Saving outputs to {log_path}")
+        logger.info(f"Saving outputs to {log_path}")
         os.makedirs(log_path)
 
         with open(f"{log_path}/args.txt", "w") as args_file:
@@ -1637,7 +1615,7 @@ class MACAW(object):
         # Gather initial trajectory rollouts
         if not self._args.load_inner_buffer or not self._args.load_outer_buffer:
             behavior_policy = self._exploration_policy
-            print("Using randomly initialized exploration policy")
+            logger.info("Using randomly initialized exploration policy")
             """
             if self._args.sampling_policy_path is not None:
                 archive_path = self._args.sampling_policy_path
@@ -1645,31 +1623,28 @@ class MACAW(object):
                     comps = archive_path.split('/')
                     comps[-2] += f'_{self._instance_idx}'
                     archive_path = '/'.join(comps)
-                print(f'Loading behavior policy from path {archive_path}')
+                logger.info(f'Loading behavior policy from path {archive_path}')
                 behavior_policy = deepcopy(behavior_policy)
                 behavior_policy.load_state_dict(torch.load(archive_path)['policy'])
             """
             if not self._args.online_ft:
-                print("Gathering training task trajectories...")
+                logger.info("Gathering training task trajectories...")
                 for i, (inner_buffer, outer_buffer) in enumerate(
                     zip(self._inner_buffers, self._outer_buffers)
                 ):
                     while inner_buffer._stored_steps < self._args.initial_interacts:
-                        task_idx = self.task_config.train_tasks[i]
                         self._env.set_task_idx(self.task_config.train_tasks[i])
-                        if self._args.render_exploration:
-                            print_(f"Task {task_idx}, trajectory {j}", self._silent)
                         trajectory, reward, success = self._rollout_policy(
                             behavior_policy, self._env, random=self._args.random
                         )
                         if self._args.render_exploration:
-                            print_(f"Reward: {reward} {success}", self._silent)
+                            logger.info(f"Reward: {reward} {success}")
                         if not self._args.load_inner_buffer:
                             inner_buffer.add_trajectory(trajectory, force=True)
                         if not self._args.load_outer_buffer:
                             outer_buffer.add_trajectory(trajectory, force=True)
 
-            print("Gathering test task trajectories...")
+            logger.info("Gathering test task trajectories...")
             if not self._args.load_inner_buffer:
                 for i, test_buffer in enumerate(self._test_buffers):
                     while test_buffer._stored_steps < self._args.initial_test_interacts:
@@ -1681,7 +1656,7 @@ class MACAW(object):
                         test_buffer.add_trajectory(random_trajectory, force=True)
 
         if self._args.online_ft:
-            print("Running ONLINE FINE-TUNING")
+            logger.info("Running ONLINE FINE-TUNING")
             self.eval_macaw(
                 0,
                 summary_writer,
@@ -1690,7 +1665,7 @@ class MACAW(object):
                 steps_per_rollout=100,
                 log_path=log_path,
             )
-            print(f"Saved fine-tuning results to {tensorboard_log_path}")
+            logger.info(f"Saved fine-tuning results to {tensorboard_log_path}")
             return
 
         rewards = []
@@ -1709,23 +1684,18 @@ class MACAW(object):
 
             if not self._silent:
                 if len(test_rewards):
-                    # print_(f'{t}: {test_rewards}, {np.mean(value)}, {np.mean(policy)}, {time.time() - self._start_time}', self._silent)
-                    print_("", self._silent)
-                    print_(f"Step {t} Rewards:", self._silent)
+                    logger.info(f"Step {t} Rewards:")
                     for idx, r in enumerate(test_rewards):
-                        print_(
+                        logger.info(
                             f"Task {self.task_config.test_tasks[idx]}: {r}",
-                            self._silent,
                         )
-                    print_(f"MEAN TEST REWARD: {np.mean(test_rewards)}", self._silent)
-                    print_(
+                    logger.info(f"MEAN TEST REWARD: {np.mean(test_rewards)}")
+                    logger.info(
                         f"Mean Value Function Outer Loss: {np.mean(value)}",
-                        self._silent,
                     )
-                    print_(f"Mean Policy Outer Loss: {np.mean(policy)}", self._silent)
-                    print_(
+                    logger.info(f"Mean Policy Outer Loss: {np.mean(policy)}")
+                    logger.info(
                         f"Elapsed time (secs): {time.time() - self._start_time}",
-                        self._silent,
                     )
 
                     if self._args.eval:
@@ -1747,14 +1717,8 @@ class MACAW(object):
                             ]
 
                         reward_count += 1
-                        print_(f"Rewards: {rewards}, {np.mean(rewards)}", self._silent)
-                        print_(
-                            f"Successes: {successes}, {np.mean(successes)}",
-                            self._silent,
-                        )
-                        # if self._args.debug:
-                        #    for idx, vf in enumerate(vfs):
-                        #        print_(idx, argmax(vf, torch.zeros(self._observation_dim, device=self._device)), self._silent)
+                        logger.info(f"Rewards: {rewards}, {np.mean(rewards)}")
+                        logger.info(f"Successes: {successes}, {np.mean(successes)}")
 
             if len(test_rewards):
                 summary_writer.add_scalar(f"Reward_Test/Mean", np.mean(test_rewards), t)
@@ -1765,7 +1729,7 @@ class MACAW(object):
 
                 if self._args.target_reward is not None:
                     if np.mean(train_rewards) > self._args.target_reward:
-                        print_("Target reward reached; breaking", self._silent)
+                        logger.info("Target reward reached; breaking")
                         break
 
             if t % self._visualization_interval == 0:

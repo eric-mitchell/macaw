@@ -1,7 +1,10 @@
 from typing import Callable, List, Optional
+import logging
 
 import torch
 import torch.nn as nn
+
+logger = logging.getLogger(__name__)
 
 
 class DeepSet(nn.Module):
@@ -142,7 +145,7 @@ class WLinear(nn.Module):
 
         dim = 100
         self.z = nn.Parameter(torch.empty(dim).normal_(0, 1.0 / out_features))
-        print(self.z.mean(), self.z.std().item())
+        logger.info(f"{self.z.mean()}, {self.z.std().item()}")
         self.fc = nn.Linear(dim, in_features * out_features + out_features)
         self.seq = self.fc
         self.w_idx = in_features * out_features
@@ -175,7 +178,7 @@ class WLinearMix(nn.Module):
         self.z = nn.Parameter(
             torch.empty(dim).normal_(0, 1.0 / (max(in_features, out_features) * n_mix))
         )
-        print("Mix", self.z.mean(), self.z.std().item())
+        logger.info(f"Mix {self.z.mean()}, {self.z.std().item()}")
 
         self.m = nn.ModuleList([nn.Linear(dim, dim) for _ in range(depth - 1)])
         self.out = nn.Linear(dim, n_mix * (in_features * out_features + out_features))
@@ -195,7 +198,6 @@ class WLinearMix(nn.Module):
         w = theta[: self.w_idx].view(self.n_mix, -1, x.shape[-1])
         b = theta[self.w_idx :].view(self.n_mix, 1, -1)
         stack = (w.unsqueeze(1) @ x.unsqueeze(0).unsqueeze(-1)).squeeze(-1) + b
-        # stack = torch.stack([x @ w[:,:,idx] + b[:,:,idx] for idx in range(self.n_mix)], -1)#torch.einsum('ij,klm->ilm', x,w) + b
 
         return stack.mean(0)
 
@@ -287,9 +289,3 @@ class MLP(nn.Module):
             return self._final_activation(self.post_seq(h)), self.head_seq(head_input)
         else:
             return self._final_activation(self.seq(x))
-
-
-if __name__ == "__main__":
-    mlp = MLP([1, 5, 8, 2])
-    x = torch.empty(10, 1).normal_()
-    print(mlp(x).shape)

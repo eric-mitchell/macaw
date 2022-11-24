@@ -1,12 +1,32 @@
 import os
+import sys
 import random
-import tempfile
+import logging
 from typing import List, NamedTuple
 
 import h5py
 import numpy as np
 import torch
 import torch.nn as nn
+
+logger = logging.getLogger(__name__)
+
+
+def setup_logger(logger: logging.Logger, debug: bool = False):
+    if debug:
+        level = logging.DEBUG
+    else:
+        level = logging.INFO
+    logger.setLevel(level)
+    logger.propagate = False
+
+    formatter = logging.Formatter('[%(asctime)s %(pathname)s:%(lineno)d] %(levelname)-8s %(message)s')
+    std_handler = logging.StreamHandler(sys.stdout)
+    std_handler.setFormatter(formatter)
+    std_handler.setLevel(level)
+    if logger.hasHandlers():
+        logger.handlers.clear()
+    logger.addHandler(std_handler)
 
 
 class RunningEstimator(object):
@@ -38,7 +58,7 @@ class RunningEstimator(object):
 
 
 def argmax(module: nn.Module, arg: torch.tensor):
-    print("Computing argmax")
+    logger.debug("Computing argmax")
     arg.requires_grad = True
     opt = torch.optim.Adam([arg], lr=0.1)
     for idx in range(1000):
@@ -51,9 +71,8 @@ def argmax(module: nn.Module, arg: torch.tensor):
         module.zero_grad()
         d = (arg - prev_arg).norm(2)
         if d < 1e-4:
-            print("breaking")
+            # print("breaking")
             break
-    # print(f'Final d: {d}')
     return arg, out
 
 
@@ -80,7 +99,7 @@ class Experience(NamedTuple):
 class ReplayBuffer(object):
     @classmethod
     def from_dict(self, size: int, d: dict, silent: bool):
-        print(f"Building replay buffer of size {size}")
+        logger.info(f"Building replay buffer of size {size}")
         obs_dim = d["obs"].shape[-1]
         action_dim = d["actions"].shape[-1]
         buf = ReplayBuffer(size, obs_dim, action_dim, silent=silent)
@@ -112,7 +131,7 @@ class ReplayBuffer(object):
         mode: str = "end",
     ):
         if size == -1 and load_from is None:
-            print(
+            logger.error(
                 "Can't have size == -1 and no offline buffer - defaulting to 1M steps"
             )
             size = 1000000
@@ -134,8 +153,7 @@ class ReplayBuffer(object):
             else:
                 path = f"/scr/em7/{name}"
             if os.path.exists(path):
-                if not silent:
-                    print(f"Using existing replay buffer memmap at {path}")
+                logger.info(f"Using existing replay buffer memmap at {path}")
                 needs_to_load = False
                 self._obs = np.memmap(
                     f"{path}/obs.array",
@@ -180,8 +198,7 @@ class ReplayBuffer(object):
                     dtype=np.float32,
                 )
             else:
-                if not silent:
-                    print(f"Creating replay buffer memmap at {path}")
+                logger.info(f"Creating replay buffer memmap at {path}")
                 os.makedirs(path)
                 self._obs = np.memmap(
                     f"{path}/obs.array",
@@ -269,16 +286,14 @@ class ReplayBuffer(object):
             self._stored_steps = n_seed // skip
 
             if needs_to_load:
-                if not silent:
-                    print(f"Loading trajectories from {load_from}")
+                logger.info(f"Loading trajectories from {load_from}")
                 if stored > self._size * skip:
-                    if not silent:
-                        print(
-                            f"Attempted to load {stored} offline steps into buffer of size {self._size}."
-                        )
-                        print(
-                            f"Loading only the **{mode}** {n_seed//skip} steps from offline buffer"
-                        )
+                    logger.info(
+                        f"Attempted to load {stored} offline steps into buffer of size {self._size}."
+                    )
+                    logger.info(
+                        f"Loading only the **{mode}** {n_seed//skip} steps from offline buffer"
+                    )
 
                 chunk_size = n_seed  # + int(skip > 1)
 

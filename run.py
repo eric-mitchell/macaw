@@ -11,10 +11,16 @@ from torch.multiprocessing import Process, set_start_method
 from src.args import get_args
 from src.envs import (AntDirEnv, HalfCheetahDirEnv, HalfCheetahVelEnv,
                       WalkerRandParamsWrappedEnv)
-from src.macaw import MACAW
+from src.macaw import MACAW, logger as macaw_logger
+from src.utils import setup_logger, logger as utils_logger
+from src.nn import logger as nn_logger
 
 
 def run(args: argparse.Namespace, instance_idx: int = 0):
+    if instance_idx == 0:
+        setup_logger(macaw_logger, debug=args.debug)
+        setup_logger(utils_logger, debug=args.debug)
+        setup_logger(nn_logger, debug=args.debug)
     with open(args.task_config, "r") as f:
         task_config = json.load(
             f, object_hook=lambda d: namedtuple("X", d.keys())(*d.values())
@@ -84,9 +90,7 @@ def run(args: argparse.Namespace, instance_idx: int = 0):
         silent=instance_idx > 0,
         instance_idx=instance_idx,
         gradient_steps_per_iteration=args.gradient_steps_per_iteration,
-        replay_buffer_length=args.replay_buffer_size,
         discount_factor=args.discount_factor,
-        seed=seed,
     )
 
     model.train()

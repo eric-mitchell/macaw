@@ -100,11 +100,11 @@ class Experience(NamedTuple):
 
 class ReplayBuffer(object):
     @classmethod
-    def from_dict(self, size: int, d: dict, silent: bool):
+    def from_dict(self, size: int, d: dict):
         logger.info(f"Building replay buffer of size {size}")
         obs_dim = d["obs"].shape[-1]
         action_dim = d["actions"].shape[-1]
-        buf = ReplayBuffer(size, obs_dim, action_dim, silent=silent)
+        buf = ReplayBuffer(size, obs_dim, action_dim)
         buf._obs[: d["obs"].shape[0]] = d["obs"]
         buf._actions[: d["obs"].shape[0]] = d["actions"]
         buf._rewards[: d["obs"].shape[0]] = d["rewards"]
@@ -127,9 +127,7 @@ class ReplayBuffer(object):
         discount_factor: float = 0.99,
         immutable: bool = False,
         load_from: str = None,
-        silent: bool = False,
         skip: int = 1,
-        stream_to_disk: bool = False,
         mode: str = "end",
     ):
         if size == -1 and load_from is None:
@@ -139,7 +137,6 @@ class ReplayBuffer(object):
             size = 1000000
 
         self.immutable = immutable
-        self.stream_to_disk = stream_to_disk
 
         if load_from is not None:
             f = h5py.File(load_from, "r")
@@ -148,126 +145,14 @@ class ReplayBuffer(object):
 
         needs_to_load = True
         size //= skip
-        if stream_to_disk:
-            name = os.path.splitext(os.path.basename(os.path.normpath(load_from)))[0]
-            if os.path.exists("/scr-ssd"):
-                path = f"/scr-ssd/em7/{name}"
-            else:
-                path = f"/scr/em7/{name}"
-            if os.path.exists(path):
-                logger.info(f"Using existing replay buffer memmap at {path}")
-                needs_to_load = False
-                self._obs = np.memmap(
-                    f"{path}/obs.array",
-                    mode="r",
-                    shape=(size, obs_dim),
-                    dtype=np.float32,
-                )
-                self._actions = np.memmap(
-                    f"{path}/actions.array",
-                    mode="r",
-                    shape=(size, action_dim),
-                    dtype=np.float32,
-                )
-                self._rewards = np.memmap(
-                    f"{path}/rewards.array", mode="r", shape=(size, 1), dtype=np.float32
-                )
-                self._mc_rewards = np.memmap(
-                    f"{path}/mc_rewards.array",
-                    mode="r",
-                    shape=(size, 1),
-                    dtype=np.float32,
-                )
-                self._terminals = np.memmap(
-                    f"{path}/terminals.array", mode="r", shape=(size, 1), dtype=np.bool
-                )
-                self._terminal_obs = np.memmap(
-                    f"{path}/terminal_obs.array",
-                    mode="r",
-                    shape=(size, obs_dim),
-                    dtype=np.float32,
-                )
-                self._terminal_discounts = np.memmap(
-                    f"{path}/terminal_discounts.array",
-                    mode="r",
-                    shape=(size, 1),
-                    dtype=np.float32,
-                )
-                self._next_obs = np.memmap(
-                    f"{path}/next_obs.array",
-                    mode="r",
-                    shape=(size, obs_dim),
-                    dtype=np.float32,
-                )
-            else:
-                logger.info(f"Creating replay buffer memmap at {path}")
-                os.makedirs(path)
-                self._obs = np.memmap(
-                    f"{path}/obs.array",
-                    mode="w+",
-                    shape=(size, obs_dim),
-                    dtype=np.float32,
-                )
-                self._actions = np.memmap(
-                    f"{path}/actions.array",
-                    mode="w+",
-                    shape=(size, action_dim),
-                    dtype=np.float32,
-                )
-                self._rewards = np.memmap(
-                    f"{path}/rewards.array",
-                    mode="w+",
-                    shape=(size, 1),
-                    dtype=np.float32,
-                )
-                self._mc_rewards = np.memmap(
-                    f"{path}/mc_rewards.array",
-                    mode="w+",
-                    shape=(size, 1),
-                    dtype=np.float32,
-                )
-                self._terminals = np.memmap(
-                    f"{path}/terminals.array", mode="w+", shape=(size, 1), dtype=np.bool
-                )
-                self._terminal_obs = np.memmap(
-                    f"{path}/terminal_obs.array",
-                    mode="w+",
-                    shape=(size, obs_dim),
-                    dtype=np.float32,
-                )
-                self._terminal_discounts = np.memmap(
-                    f"{path}/terminal_discounts.array",
-                    mode="w+",
-                    shape=(size, 1),
-                    dtype=np.float32,
-                )
-                self._next_obs = np.memmap(
-                    f"{path}/next_obs.array",
-                    mode="w+",
-                    shape=(size, obs_dim),
-                    dtype=np.float32,
-                )
-                self._obs.fill(float("nan"))
-                self._actions.fill(float("nan"))
-                self._rewards.fill(float("nan"))
-                self._mc_rewards.fill(float("nan"))
-                self._terminals.fill(float("nan"))
-                self._terminal_obs.fill(float("nan"))
-                self._terminal_discounts.fill(float("nan"))
-                self._next_obs.fill(float("nan"))
-        else:
-            self._obs = np.full((size, obs_dim), float("nan"), dtype=np.float32)
-            self._actions = np.full((size, action_dim), float("nan"), dtype=np.float32)
-            self._rewards = np.full((size, 1), float("nan"), dtype=np.float32)
-            self._mc_rewards = np.full((size, 1), float("nan"), dtype=np.float32)
-            self._terminals = np.full((size, 1), False, dtype=np.bool)
-            self._terminal_obs = np.full(
-                (size, obs_dim), float("nan"), dtype=np.float32
-            )
-            self._terminal_discounts = np.full(
-                (size, 1), float("nan"), dtype=np.float32
-            )
-            self._next_obs = np.full((size, obs_dim), float("nan"), dtype=np.float32)
+        self._obs = np.full((size, obs_dim), float("nan"), dtype=np.float32)
+        self._actions = np.full((size, action_dim), float("nan"), dtype=np.float32)
+        self._rewards = np.full((size, 1), float("nan"), dtype=np.float32)
+        self._mc_rewards = np.full((size, 1), float("nan"), dtype=np.float32)
+        self._terminals = np.full((size, 1), False, dtype=np.bool)
+        self._terminal_obs = np.full((size, obs_dim), float("nan"), dtype=np.float32)
+        self._terminal_discounts = np.full((size, 1), float("nan"), dtype=np.float32)
+        self._next_obs = np.full((size, obs_dim), float("nan"), dtype=np.float32)
 
         self._size = size
         if load_from is None:
@@ -330,7 +215,6 @@ class ReplayBuffer(object):
             f.close()
 
         self._write_location = self._stored_steps % self._size
-        # self._valid = np.where(np.logical_and(~np.isnan(self._terminal_discounts[:,0]), self._terminal_discounts[:,0] < 0.35))[0]
 
     @property
     def obs_dim(self):
@@ -483,48 +367,3 @@ def generate_test_trajectory(length: int, state_dim: int, action_dim: int):
         )
 
     return trajectory
-
-
-def test_old_buffer():
-    trajectory_length = 100
-    state, action = 6, 4
-    buf = ReplayBuffer(trajectory_length, state, action, max_trajectories=5)
-
-    for idx in range(2):
-        buf.add_trajectory(generate_test_trajectory(20, state, action))
-
-    buf.add_trajectories(
-        [generate_test_trajectory(10, state, action) for _ in range(2)]
-    )
-
-    print(len(buf))
-    print(buf.sample(2))
-    import pdb
-
-    pdb.set_trace()
-
-
-def test_new_buffer():
-    np.random.seed(0)
-    size = 100000000
-    state, action = 20, 6
-    buf = ReplayBuffer(size, state, action, stream_to_disk=True)
-
-    t1 = generate_test_trajectory(3, state, action)
-    buf.add_trajectory(t1)
-
-    t2 = [generate_test_trajectory(3, state, action) for _ in range(4)]
-    buf.add_trajectories(t2)
-
-    print(len(buf))
-    print("sample", buf.sample(20000).shape)
-
-    buf.save("test_buf.h5")
-    # buf2 = ReplayBuffer(size, state, action, load_from='test_buf.h5')
-    import pdb
-
-    pdb.set_trace()
-
-
-if __name__ == "__main__":
-    test_new_buffer()

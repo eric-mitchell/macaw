@@ -213,9 +213,7 @@ class MACAW(object):
                 discount_factor=discount_factor,
                 immutable=test_buffers[i] is not None,
                 load_from=test_buffers[i],
-                silent=silent,
                 skip=args.inner_buffer_skip,
-                stream_to_disk=args.from_disk,
                 mode=args.buffer_mode,
             )
             for i, task in enumerate(task_config.test_tasks)
@@ -230,9 +228,7 @@ class MACAW(object):
                     discount_factor=discount_factor,
                     immutable=args.offline or args.offline_inner,
                     load_from=inner_buffers[i],
-                    silent=silent,
                     skip=args.inner_buffer_skip,
-                    stream_to_disk=args.from_disk,
                     mode=args.buffer_mode,
                 )
                 for i, task in enumerate(task_config.train_tasks)
@@ -256,9 +252,7 @@ class MACAW(object):
                         discount_factor=discount_factor,
                         immutable=args.offline or args.offline_outer,
                         load_from=outer_buffers[i],
-                        silent=silent,
                         skip=args.buffer_skip,
-                        stream_to_disk=args.from_disk,
                     )
                     for i, task in enumerate(task_config.train_tasks)
                 ]
@@ -333,7 +327,7 @@ class MACAW(object):
         policy: MLP,
         env,
         sample_mode: bool = False,
-        random: bool = False,
+        random_action: bool = False,
         render: bool = False,
     ) -> List[Experience]:
         env.seed(self._env_seeds[self._rollout_counter].item())
@@ -358,7 +352,10 @@ class MACAW(object):
         while not done:
             if self._args.multitask and sample_mode:
                 state[-self.task_config.total_tasks :] = 0
-            if not random:
+            if random_action:
+                action = env.action_space.sample()
+                log_prob = math.log(1 / 2 ** env.action_space.shape[0])
+            else:
                 with torch.no_grad():
                     action_sigma = self._action_sigma
                     if isinstance(policy, CVAE):
@@ -394,9 +391,6 @@ class MACAW(object):
                         .numpy()
                         .clip(min=env.action_space.low, max=env.action_space.high)
                     )
-            else:
-                action = env.action_space.sample()
-                log_prob = math.log(1 / 2 ** env.action_space.shape[0])
 
             next_state, reward, done, info_dict = env.step(action)
             if self._args.trim_obs is not None:
@@ -404,7 +398,7 @@ class MACAW(object):
                     (next_state, np.zeros((self._args.trim_obs,)))
                 )
 
-            if "success" in info_dict and info_dict["success"]:
+            if info_dict.get("success", False):
                 success = True
 
             if render:
@@ -885,9 +879,7 @@ class MACAW(object):
                     ft_v_opt = O.Adam(adapted_vf.parameters(), lr=1e-5)
                     ft_p_opt = O.Adam(adapted_policy.parameters(), lr=1e-5)
                     buf_size = 50000  # self._env._max_episode_steps * ft_steps
-                    replay_buffer = ReplayBuffer.from_dict(
-                        buf_size, value_batch_dict, self._silent
-                    )
+                    replay_buffer = ReplayBuffer.from_dict(buf_size, value_batch_dict)
                     replay_buffer._stored_steps = 0
                     replay_buffer._write_location = 0
 
@@ -1200,10 +1192,7 @@ class MACAW(object):
                     vf.train()
                     vf_target = deepcopy(vf)
                     opt = O.SGD(
-                        [
-                            {"params": p, "lr": None}
-                            for p in vf.adaptation_parameters()
-                        ]
+                        [{"params": p, "lr": None} for p in vf.adaptation_parameters()]
                     )
                     with higher.innerloop_ctx(
                         vf,
@@ -1355,9 +1344,7 @@ class MACAW(object):
                         outer_weights.append(outer_weights_.mean().item())
                         outer_advantages.append(outer_adv.item())
 
-                    (
-                        meta_policy_loss / len(self.task_config.train_tasks)
-                    ).backward()
+                    (meta_policy_loss / len(self.task_config.train_tasks)).backward()
                     meta_policy_losses.append(meta_policy_loss.item())
                     ##################################################################################################
 
@@ -1601,7 +1588,7 @@ class MACAW(object):
                     while inner_buffer._stored_steps < self._args.initial_interacts:
                         self._env.set_task_idx(self.task_config.train_tasks[i])
                         trajectory, reward, success = self._rollout_policy(
-                            behavior_policy, self._env, random=self._args.random
+                            behavior_policy, self._env, random_action=self._args.random
                         )
                         if self._args.render_exploration:
                             logger.info(f"Reward: {reward} {success}")
@@ -1617,7 +1604,7 @@ class MACAW(object):
                         task_idx = self.task_config.test_tasks[i]
                         self._env.set_task_idx(task_idx)
                         random_trajectory, _, _ = self._rollout_policy(
-                            behavior_policy, self._env, random=self._args.random
+                            behavior_policy, self._env, random_action=self._args.random
                         )
                         test_buffer.add_trajectory(random_trajectory, force=True)
 

@@ -11,7 +11,6 @@ def get_args() -> argparse.Namespace:
     parser.add_argument("--buffer_mode", type=str, default="end")
     parser.add_argument("--value_reg", type=float, default=0)
     parser.add_argument("--contiguous", action="store_true")
-    parser.add_argument("--from_disk", action="store_true")
     parser.add_argument("--archive", type=str, default=None)
     parser.add_argument("--wlinear", action="store_true")
     parser.add_argument("--macaw_params", type=str, default=None)

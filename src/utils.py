@@ -20,7 +20,9 @@ def setup_logger(logger: logging.Logger, debug: bool = False):
     logger.setLevel(level)
     logger.propagate = False
 
-    formatter = logging.Formatter('[%(asctime)s %(pathname)s:%(lineno)d] %(levelname)-8s %(message)s')
+    formatter = logging.Formatter(
+        "[%(asctime)s %(pathname)s:%(lineno)d] %(levelname)-8s %(message)s"
+    )
     std_handler = logging.StreamHandler(sys.stdout)
     std_handler.setFormatter(formatter)
     std_handler.setLevel(level)
@@ -401,8 +403,6 @@ class ReplayBuffer(object):
 
             if self._stored_steps < self._size:
                 self._stored_steps += 1
-
-        # self._valid = np.where(np.logical_and(~np.isnan(self._terminal_discounts[:,0]), self._terminal_discounts[:,0] < 0.35))[0]
 
     def add_trajectories(
         self, trajectories: List[List[Experience]], force: bool = False

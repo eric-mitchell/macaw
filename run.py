@@ -9,8 +9,12 @@ import torch
 from torch.multiprocessing import Process, set_start_method
 
 from src.args import get_args
-from src.envs import (AntDirEnv, HalfCheetahDirEnv, HalfCheetahVelEnv,
-                      WalkerRandParamsWrappedEnv)
+from src.envs import (
+    AntDirEnv,
+    HalfCheetahDirEnv,
+    HalfCheetahVelEnv,
+    WalkerRandParamsWrappedEnv,
+)
 from src.macaw import MACAW, logger as macaw_logger
 from src.utils import setup_logger, logger as utils_logger
 from src.nn import logger as nn_logger

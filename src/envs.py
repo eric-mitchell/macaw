@@ -3,12 +3,11 @@ from typing import List
 import numpy as np
 
 from src.tp_envs.ant_dir import AntDirEnv as AntDirEnv_
-from src.tp_envs.half_cheetah_dir import \
-    HalfCheetahDirEnv as HalfCheetahDirEnv_
-from src.tp_envs.half_cheetah_vel import \
-    HalfCheetahVelEnv as HalfCheetahVelEnv_
-from src.tp_envs.walker_rand_params_wrapper import \
-    WalkerRandParamsWrappedEnv as WalkerRandParamsWrappedEnv_
+from src.tp_envs.half_cheetah_dir import HalfCheetahDirEnv as HalfCheetahDirEnv_
+from src.tp_envs.half_cheetah_vel import HalfCheetahVelEnv as HalfCheetahVelEnv_
+from src.tp_envs.walker_rand_params_wrapper import (
+    WalkerRandParamsWrappedEnv as WalkerRandParamsWrappedEnv_,
+)
 
 
 class HalfCheetahDirEnv(HalfCheetahDirEnv_):

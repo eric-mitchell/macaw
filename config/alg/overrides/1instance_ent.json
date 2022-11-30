@@ -1,0 +1,7 @@
+{
+    "instances": 1,
+    "vis_interval": 2000,
+    "entropy_alpha_coef": 0.98,
+    "name_suffix": "ent_max",
+    "log_dir": "log_debug"
+}

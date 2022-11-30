@@ -43,7 +43,7 @@ def check_config(config):
             print('WARNING: TEST AND TRAIN BUFFERS NOT DISJOINT')
     """
     if len(set(config.train_tasks).intersection(set(config.test_tasks))) > 0:
-        print("WARNING: TEST AND TRAIN TASKS NOT DISJOINT")
+        logger.warning("WARNING: TEST AND TRAIN TASKS NOT DISJOINT")
 
 
 class MACAW(object):
@@ -295,12 +295,19 @@ class MACAW(object):
                         args.device
                     )
                 )
+            if args.entropy_alpha_coef is not None:
+                self._alpha_coef = torch.nn.Parameter(
+                    torch.tensor(args.entropy_alpha_coef).to(args.device)
+                )
+                self.target_entropy = -torch.tensor(self._action_dim).to(args.device)
 
         self._policy_lr_optimizer = O.Adam(self._policy_lrs, lr=self._args.lrlr)
         self._value_lr_optimizer = O.Adam(self._value_lrs, lr=self._args.lrlr)
         self._q_lr_optimizer = O.Adam(self._q_lrs, lr=self._args.lrlr)
         if args.advantage_head_coef is not None:
             self._adv_coef_optimizer = O.Adam([self._adv_coef], lr=self._args.lrlr)
+        if args.entropy_alpha_coef is not None:
+            self._alpha_coef_optimizer = O.Adam([self._alpha_coef], lr=self._args.lrlr)
 
         self._adaptation_temperature = args.adaptation_temp
         self._device = torch.device(args.device)
@@ -611,8 +618,14 @@ class MACAW(object):
         ).sum(-1)
 
         losses = -(action_log_probs * weights)
+        policy_loss = None
+        if self._args.entropy_alpha_coef is not None:
+            policy_loss = ((self._alpha_coef.detach() * action_log_probs) - action_value_estimates.squeeze(-1))
+            losses += policy_loss
+            policy_loss = policy_loss.mean()
 
         adv_prediction_loss = None
+        alpha_loss = None
         if inner:
             if self._args.advantage_head_coef is not None:
                 adv_prediction_loss = (
@@ -621,8 +634,12 @@ class MACAW(object):
                 )
                 losses = losses + adv_prediction_loss
                 adv_prediction_loss = adv_prediction_loss.mean()
+            if self._args.entropy_alpha_coef is not None:
+                alpha_loss = -(self._alpha_coef.log() * (action_log_probs + self.target_entropy).detach())
+                losses = losses + alpha_loss
+                alpha_loss = alpha_loss.mean()
 
-        return losses.mean(), advantages.mean(), weights, adv_prediction_loss
+        return losses.mean(), advantages.mean(), weights, policy_loss, adv_prediction_loss, alpha_loss
 
     @staticmethod
     def update_model(
@@ -699,7 +716,7 @@ class MACAW(object):
                 opt.step()
                 opt.zero_grad()
 
-                ap_loss, _, _, _ = self.adaptation_policy_loss_on_batch(
+                ap_loss, _, _, _, _, _ = self.adaptation_policy_loss_on_batch(
                     ap, None, vf, batch, task_idx=None, inner=True
                 )
                 ap_loss.backward()
@@ -842,7 +859,7 @@ class MACAW(object):
                             f_policy, policy_batch, None, inner=True
                         )
                     else:
-                        loss, _, _, _ = self.adaptation_policy_loss_on_batch(
+                        loss, _, _, _, _, _ = self.adaptation_policy_loss_on_batch(
                             f_policy,
                             None,
                             f_value_function,
@@ -988,6 +1005,8 @@ class MACAW(object):
                                             _,
                                             _,
                                             _,
+                                            _,
+                                            _,
                                         ) = self.adaptation_policy_loss_on_batch(
                                             adapted_policy,
                                             None,
@@ -1119,9 +1138,11 @@ class MACAW(object):
             meta_value_losses = []
             inner_policy_losses = []
             adv_policy_losses = []
+            alpha_policy_losses = []
             meta_policy_losses = []
             inner_mc_means, inner_mc_stds = [], []
             outer_mc_means, outer_mc_stds = [], []
+            alpha_values = []
             inner_values, outer_values = [], []
             inner_weights, outer_weights = [], []
             inner_advantages, outer_advantages = [], []
@@ -1156,6 +1177,8 @@ class MACAW(object):
                     meta_policy_loss,
                     outer_adv,
                     outer_weights_,
+                    _,
+                    _,
                     _,
                 ) = self.adaptation_policy_loss_on_batch(
                     self._adaptation_policy,
@@ -1307,7 +1330,9 @@ class MACAW(object):
                                     loss,
                                     adv,
                                     weights,
+                                    policy_loss,
                                     adv_loss,
+                                    alpha_loss,
                                 ) = self.adaptation_policy_loss_on_batch(
                                     f_adaptation_policy,
                                     adapted_q_function,
@@ -1318,6 +1343,9 @@ class MACAW(object):
                                 )
                                 if adv_loss is not None:
                                     adv_policy_losses.append(adv_loss.item())
+                                if alpha_loss is not None:
+                                    alpha_policy_losses.append(alpha_loss.item())
+                                    alpha_values.append(self._alpha_coef.detach().item())
                                 inner_advantages.append(adv.item())
                                 inner_weights.append(weights.mean().item())
 
@@ -1333,6 +1361,8 @@ class MACAW(object):
                             meta_policy_loss,
                             outer_adv,
                             outer_weights_,
+                            _,
+                            _,
                             _,
                         ) = self.adaptation_policy_loss_on_batch(
                             f_adaptation_policy,
@@ -1400,6 +1430,17 @@ class MACAW(object):
                         writer.add_scalar(
                             f"Loss_Policy_Adv_Inner/Task_{train_task_idx}",
                             np.mean(adv_policy_losses),
+                            train_step_idx,
+                        )
+                    if len(alpha_policy_losses):
+                        writer.add_scalar(
+                            f"Loss_Policy_Alpha_Inner/Task_{train_task_idx}",
+                            np.mean(alpha_policy_losses),
+                            train_step_idx,
+                        )
+                        writer.add_scalar(
+                            f"Value_Mean_Alpha/Task_{train_task_idx}",
+                            np.mean(alpha_values),
                             train_step_idx,
                         )
                     writer.add_scalar(
@@ -1539,6 +1580,8 @@ class MACAW(object):
             self.update_params(self._policy_lr_optimizer)
             if self._args.advantage_head_coef is not None:
                 self.update_params(self._adv_coef_optimizer)
+            if self._args.entropy_alpha_coef is not None:
+                self.update_params(self._alpha_coef_optimizer)
 
         return (
             rollouts,

@@ -23,5 +23,6 @@
     "lrlr": 1e-3,
     "wlinear": true,
     "contiguous": true,
-    "advantage_head_coef": 0.01
+    "advantage_head_coef": 0.01,
+    "entropy_alpha_coef": null
 }

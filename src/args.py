@@ -75,6 +75,7 @@ def get_args() -> argparse.Namespace:
     parser.add_argument("--task_idx", type=int, default=None)
     parser.add_argument("--instances", type=int, default=1)
     parser.add_argument("--name", type=str, default=None)
+    parser.add_argument("--name_suffix", type=str, default="")
     parser.add_argument("--render", action="store_true")
     parser.add_argument("--gradient_steps_per_iteration", type=int, default=50)
     parser.add_argument("--replay_buffer_size", type=int, default=20000)
@@ -96,6 +97,7 @@ def get_args() -> argparse.Namespace:
     parser.add_argument("--adaptation_temp", type=float, default=1)
     parser.add_argument("--no_bias_linear", action="store_true")
     parser.add_argument("--advantage_head_coef", type=float, default=None)
+    parser.add_argument("--entropy_alpha_coef", type=float, default=None)
     parser.add_argument("--eval", action="store_true")
     parser.add_argument("--target_reward", type=float, default=None)
     parser.add_argument("--save_buffers", action="store_true")
@@ -119,5 +121,8 @@ def get_args() -> argparse.Namespace:
 
         for k, v in params.items():
             setattr(args, k, v)
+
+    if args.name_suffix:
+        args.name = f"{args.name}_{args.name_suffix}"
 
     return args
